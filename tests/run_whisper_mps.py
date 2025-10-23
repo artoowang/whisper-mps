@@ -3,10 +3,12 @@
 
 from whisper_mps import whisper
 from whisper_mps.utils.ytdownloader import download_and_convert_to_mp3
+from whisper_mps.whisper.transcribe import ModelHolder
 import argparse
 from rich.progress import Progress, TimeElapsedColumn, BarColumn, TextColumn
 import json
 import logging
+import mlx.core as mx
 
 
 parser = argparse.ArgumentParser(description="Automatic Speech Recognition")
@@ -62,6 +64,13 @@ def main():
     model_name = args.model_name
     youtube_url = args.youtube_url
     output_file_name = args.output_file_name
+
+    # Preloading the model. Note this needs to match the fp16 option passed to
+    # transcribe. When not specified, fp16 is True by default.
+    logging.info(f'Preloading the model: {model_name} ...')
+    ModelHolder.get_model(model_name, mx.float16)
+    logging.info('Model loaded.')
+
     if not output_file_name.lower().endswith('.json'):
         output_file_name = output_file_name + '.json'
     if youtube_url is not None:
