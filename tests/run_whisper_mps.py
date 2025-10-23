@@ -9,6 +9,7 @@ from rich.progress import Progress, TimeElapsedColumn, BarColumn, TextColumn
 import json
 import logging
 import mlx.core as mx
+import time
 
 
 parser = argparse.ArgumentParser(description="Automatic Speech Recognition")
@@ -44,19 +45,15 @@ parser.add_argument(
 )
 
 def worker(file_name,model_name,output_file_name):
-    with Progress(
-        TextColumn("🤗 [progress.description]"),
-        BarColumn(style="yellow1", pulse_style="white"),
-        TimeElapsedColumn(),
-    ) as progress:
-        progress.add_task("[yellow]Transcribing...", total=None)
-        text = whisper.transcribe(file_name,model=model_name)
-        print(text)
-        with open(output_file_name, "w", encoding="utf8") as fp:
-            json.dump(text, fp, ensure_ascii=False)
-        print(
-            f"Voila!✨ Your file has been transcribed go check it out over here 👉 {output_file_name}"
-        )
+    start_time = time.time()
+    text = whisper.transcribe(file_name,model=model_name)
+    logging.info(f'Transcription completed in {time.time() - start_time} seconds.')
+    print(text)
+    with open(output_file_name, "w", encoding="utf8") as fp:
+        json.dump(text, fp, ensure_ascii=False)
+    print(
+        f"Voila!✨ Your file has been transcribed go check it out over here 👉 {output_file_name}"
+    )
 
 def main():
     args = parser.parse_args()
