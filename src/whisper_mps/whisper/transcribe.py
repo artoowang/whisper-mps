@@ -1,5 +1,7 @@
 # Copyright © 2023 Apple Inc.
 
+from dataclasses import replace
+import logging
 import mlx.core as mx
 import numpy as np
 import sys
@@ -19,6 +21,8 @@ from .audio import (
 from .decoding import DecodingOptions, DecodingResult
 from .load_models import load_model
 from .tokenizer import LANGUAGES, TO_LANGUAGE_CODE, get_tokenizer
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _format_timestamp(seconds: float):
@@ -180,19 +184,33 @@ def transcribe(
                 compression_ratio_threshold is not None
                 and decode_result.compression_ratio > compression_ratio_threshold
             ):
+                _LOGGER.debug(f"Temperature {t} caused high compression " +
+                              f"ratio: {decode_result.compression_ratio} > " +
+                              f"{compression_ratio_threshold}")
                 needs_fallback = True  # too repetitive
             if (
                 logprob_threshold is not None
                 and decode_result.avg_logprob < logprob_threshold
             ):
+                _LOGGER.debug(f"Temperature {t} caused low confidence: " +
+                              f"{decode_result.avg_logprob} < " +
+                              f"{logprob_threshold}")
                 needs_fallback = True  # average log probability is too low
             if (
                 no_speech_threshold is not None
                 and decode_result.no_speech_prob > no_speech_threshold
             ):
+                _LOGGER.debug(f"Temperature {t} detects no speech: " +
+                              f"{decode_result.no_speech_prob} > " +
+                              f"{no_speech_threshold}")
                 needs_fallback = False  # silence
             if not needs_fallback:
                 break
+
+        if needs_fallback:
+            _LOGGER.warning("Still needs fallback after trying all " +
+                            "temperatures. Clear output tokens and text.")
+            decode_result = replace(decode_result, tokens=[], text="")
 
         return decode_result
 
