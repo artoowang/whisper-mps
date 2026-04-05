@@ -30,6 +30,8 @@ _MODELS = {
     "large": "https://openaipublic.azureedge.net/main/whisper/models/e5b1a55b89c1367dacf97e3e19bfd829a01529dbfdeefa8caeb59b3f1b81dadb/large-v3.pt",
     "large-v3-turbo": "https://openaipublic.azureedge.net/main/whisper/models/aff26ae408abcba5fbf8813c21e62b0941638c5f6eebfb145be0c9839262a19a/large-v3-turbo.pt",
     "turbo": "https://openaipublic.azureedge.net/main/whisper/models/aff26ae408abcba5fbf8813c21e62b0941638c5f6eebfb145be0c9839262a19a/large-v3-turbo.pt",
+    # My own local test models:
+    "large-v3-hf": "local_model",
 }
 
 # base85-encoded (n_layers, n_heads) boolean arrays indicating the cross-attention heads that are
@@ -49,10 +51,16 @@ _ALIGNMENT_HEADS = {
     "large": b"ABzY8gWO1E0{>%R7(9S+Kn!D~%ngiGaR?*L!iJG9p-nab0JQ=-{D1-g00",
     "large-v3-turbo": b"ABzY8j^C+e0{>%RARaKHP%t(lGR*)0g!tONPyhe`",
     "turbo": b"ABzY8j^C+e0{>%RARaKHP%t(lGR*)0g!tONPyhe`",
+    # Assume there is no architectural difference between the large-v3-hf model and the large-v3 model, so we can reuse the same alignment heads:
+    "large-v3-hf": b"ABzY8gWO1E0{>%R7(9S+Kn!D~%ngiGaR?*L!iJG9p-nab0JQ=-{D1-g00",
 }
 
 
-def _download(url: str, root: str) -> str:
+def _download(url: str, root: str, name: str) -> str:
+    # If the URL is "local_model", we assume the model file is already present in the root directory with the name "{name}.pt".
+    if url == "local_model":
+        return os.path.join(root, f"{name}.pt")
+
     os.makedirs(root, exist_ok=True)
 
     expected_sha256 = url.split("/")[-2]
@@ -125,7 +133,7 @@ def load_torch_model(
         download_root = os.path.join(os.path.expanduser("~"), ".cache/whisper")
 
     if name in _MODELS:
-        checkpoint_file = _download(_MODELS[name], download_root)
+        checkpoint_file = _download(_MODELS[name], download_root, name)
         alignment_heads = _ALIGNMENT_HEADS[name]
     else:
         raise RuntimeError(
@@ -170,7 +178,8 @@ def convert(model, rules=None):
 
 
 def torch_to_mlx(
-    torch_model: torch_whisper.Whisper, dtype: mx.Dtype = mx.float16,
+    torch_model: torch_whisper.Whisper,
+    dtype: mx.Dtype = mx.float16,
 ) -> whisper.Whisper:
     def convert_rblock(model, rules):
         children = dict(model.named_children())
@@ -198,6 +207,6 @@ def torch_to_mlx(
 def load_model(
     name: str,
     download_root: str = None,
-    dtype : mx.Dtype = mx.float32,
+    dtype: mx.Dtype = mx.float32,
 ) -> whisper.Whisper:
     return torch_to_mlx(load_torch_model(name, download_root), dtype)
